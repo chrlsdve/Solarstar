@@ -112,7 +112,7 @@ client.on('interactionCreate', async interaction => {
     try {
         if (commandName === 'announce') {
             const message = interaction.options.getString('message');
-            const formattedMessage = `📢 **Announcement!**\n\n${message.replace(/\\n/g, '\n')}`;
+            const formattedMessage = `📢 **Announcement!**\n${message.replace(/\\n/g, '\n')}`;
         
             // Send the announcement message and store the sent message in sentMessage
             const sentMessage = await announcementChannel.send(formattedMessage);
