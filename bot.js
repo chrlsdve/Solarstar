@@ -113,13 +113,18 @@ client.on('interactionCreate', async interaction => {
         if (commandName === 'announce') {
             const message = interaction.options.getString('message');
             const formattedMessage = `📢 **Announcement!**\n\n${message.replace(/\\n/g, '\n')}`;
-
+        
+            // Send the announcement message and store the sent message in sentMessage
+            const sentMessage = await announcementChannel.send(formattedMessage);
+        
+            // React to the sent message
             await sentMessage.react('💖');
             await sentMessage.react('🔥');
             await sentMessage.react('✨');
-
+        
+            // Respond to the interaction
             await interaction.editReply('✅ Announcement sent!');
-        }else if (commandName === 'editannounce') {
+        } else if (commandName === 'editannounce') {
             const messageId = interaction.options.getString('message_id');
             const newMessage = interaction.options.getString('new_message');
             const messageToEdit = await announcementChannel.messages.fetch(messageId);
