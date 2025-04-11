@@ -1,5 +1,11 @@
 require('dotenv').config();
-const { Client, GatewayIntentBits, SlashCommandBuilder, REST, Routes } = require('discord.js');
+const { 
+    Client, 
+    GatewayIntentBits, 
+    SlashCommandBuilder, 
+    REST, 
+    Routes 
+} = require('discord.js');
 
 const client = new Client({
     intents: [
@@ -12,7 +18,6 @@ const client = new Client({
 const TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
 const SERVER_ID = '1334544134257508363'; // Your server ID
-const ANNOUNCEMENT_CHANNEL_ID = '1334553508137009172'; // Your announcement channel ID
 
 console.log("🚀 Solar Star bot is starting...");
 
@@ -29,16 +34,20 @@ if (!CLIENT_ID) {
 client.once('ready', async () => {
     console.log(`✅ Logged in as ${client.user.tag}`);
 
-    // Define commands
     const commands = [
         new SlashCommandBuilder()
             .setName('announce')
             .setDescription('Send a multi-line text announcement')
+            .addChannelOption(option =>
+                option.setName('channel')
+                    .setDescription('The channel to send the announcement')
+                    .setRequired(true))
             .addStringOption(option =>
                 option.setName('message')
-                    .setDescription('The announcement message (use \n for line breaks)')
+                    .setDescription('The announcement message (use \\n for line breaks)')
                     .setRequired(true)
             ),
+
         new SlashCommandBuilder()
             .setName('editannounce')
             .setDescription('Edit an existing announcement')
@@ -49,9 +58,10 @@ client.once('ready', async () => {
             )
             .addStringOption(option =>
                 option.setName('new_message')
-                    .setDescription('The new message content (use \n for line breaks)')
+                    .setDescription('The new message content (use \\n for line breaks)')
                     .setRequired(true)
             ),
+
         new SlashCommandBuilder()
             .setName('deleteannounce')
             .setDescription('Delete an announcement')
@@ -60,9 +70,14 @@ client.once('ready', async () => {
                     .setDescription('The ID of the message to delete')
                     .setRequired(true)
             ),
+
         new SlashCommandBuilder()
             .setName('imageannounce')
             .setDescription('Send an announcement with images')
+            .addChannelOption(option =>
+                option.setName('channel')
+                    .setDescription('The channel to send the announcement')
+                    .setRequired(true))
             .addStringOption(option =>
                 option.setName('message')
                     .setDescription('The announcement message')
@@ -70,7 +85,6 @@ client.once('ready', async () => {
             ),
     ];
 
-    // Add up to 10 image options
     for (let i = 1; i <= 10; i++) {
         commands[3].addAttachmentOption(option =>
             option.setName(`image${i}`)
@@ -96,50 +110,57 @@ client.once('ready', async () => {
 
 client.on('interactionCreate', async interaction => {
     if (!interaction.isCommand()) return;
-    
+
     console.log(`🛠 Command received: ${interaction.commandName}`);
 
     await interaction.deferReply({ ephemeral: true });
 
     const commandName = interaction.commandName;
-    const announcementChannel = interaction.guild.channels.cache.get(ANNOUNCEMENT_CHANNEL_ID);
-
-    if (!announcementChannel) {
-        console.error("⚠️ Announcement channel not found. Check ID.");
-        return interaction.editReply('⚠️ Announcement channel not found! Check the channel ID.');
-    }
 
     try {
         if (commandName === 'announce') {
             const message = interaction.options.getString('message');
+            const announcementChannel = interaction.options.getChannel('channel');
+
+            if (!announcementChannel || !announcementChannel.isTextBased()) {
+                return interaction.editReply('⚠️ Invalid channel. Please select a text channel.');
+            }
+
             const formattedMessage = `📢 **Announcement!**\n${message.replace(/\\n/g, '\n')}`;
-        
-            // Send the announcement message and store the sent message in sentMessage
             const sentMessage = await announcementChannel.send(formattedMessage);
-        
-            // React to the sent message
+
             await sentMessage.react('💖');
             await sentMessage.react('🔥');
             await sentMessage.react('✨');
-        
-            // Respond to the interaction
-            await interaction.editReply('✅ Announcement sent!');
-        } else if (commandName === 'editannounce') {
+
+            await interaction.editReply(`✅ Announcement sent in ${announcementChannel}`);
+        }
+
+        else if (commandName === 'editannounce') {
             const messageId = interaction.options.getString('message_id');
             const newMessage = interaction.options.getString('new_message');
-            const messageToEdit = await announcementChannel.messages.fetch(messageId);
+            const messageToEdit = await interaction.channel.messages.fetch(messageId);
+
             await messageToEdit.edit(`📢 **Announcement!**\n\n${newMessage.replace(/\\n/g, '\n')}`);
             await interaction.editReply('✅ Announcement updated!');
-        } else if (commandName === 'deleteannounce') {
-            const messageId = interaction.options.getString('message_id');
+        }
 
-            const messageToDelete = await announcementChannel.messages.fetch(messageId);
+        else if (commandName === 'deleteannounce') {
+            const messageId = interaction.options.getString('message_id');
+            const messageToDelete = await interaction.channel.messages.fetch(messageId);
+
             await messageToDelete.delete();
             await interaction.editReply('✅ Announcement deleted!');
-        } else if (commandName === 'imageannounce') {
+        }
+
+        else if (commandName === 'imageannounce') {
+            const announcementChannel = interaction.options.getChannel('channel');
             const message = interaction.options.getString('message');
-            
-            // Get images from options
+
+            if (!announcementChannel || !announcementChannel.isTextBased()) {
+                return interaction.editReply('⚠️ Invalid channel. Please select a text channel.');
+            }
+
             const images = [];
             for (let i = 1; i <= 10; i++) {
                 const image = interaction.options.getAttachment(`image${i}`);
@@ -147,11 +168,9 @@ client.on('interactionCreate', async interaction => {
             }
 
             if (images.length === 0) {
-                console.warn("⚠️ No images attached.");
                 return interaction.editReply('⚠️ Please attach at least one image!');
             }
 
-            console.log(`📢 Sending announcement with ${images.length} images...`);
             const sentMessage = await announcementChannel.send({
                 content: `📢 **${message}**`,
                 files: images
@@ -161,29 +180,18 @@ client.on('interactionCreate', async interaction => {
             await sentMessage.react('🔥');
             await sentMessage.react('✨');
 
-            await interaction.editReply('✅ Announcement with images sent!');
+            await interaction.editReply(`✅ Announcement with images sent in ${announcementChannel}`);
         }
+
     } catch (error) {
         console.error("❌ Error handling command:", error);
         await interaction.editReply('❌ Something went wrong while processing the command.');
     }
 });
 
-// Start the bot
 client.login(TOKEN).then(() => {
     console.log("🔑 Successfully logged in!");
 }).catch(error => {
     console.error("❌ Failed to log in! Check your token.");
     console.error(error);
 });
-
-
-
-
-
-
-
-
-
-
-
